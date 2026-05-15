@@ -1,0 +1,296 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+
+<head>
+
+    <meta charset="UTF-8">
+
+    <meta name="viewport"
+          content="width=device-width, initial-scale=1.0">
+
+    <title>Monitoramento AWS</title>
+
+    <style>
+
+        body{
+            font-family: Arial, sans-serif;
+            background-color: #f4f4f4;
+            margin: 0;
+            padding: 40px;
+        }
+
+        .container{
+            max-width: 1000px;
+            margin: auto;
+            background: white;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 0 10px rgba(0,0,0,0.1);
+        }
+
+        h1{
+            color: #333;
+        }
+
+        .card{
+            margin-top: 20px;
+            padding: 20px;
+            background-color: #f7f7f7;
+            border-left: 5px solid #007bff;
+            border-radius: 8px;
+        }
+
+        .status{
+            font-size: 22px;
+            margin-top: 10px;
+            color: #007bff;
+        }
+
+        button{
+            margin-top: 20px;
+            padding: 12px 20px;
+            border: none;
+            background-color: #007bff;
+            color: white;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 16px;
+        }
+
+        button:hover{
+            background-color: #0056b3;
+        }
+
+        pre{
+            background-color: #222;
+            color: #00ff99;
+            padding: 15px;
+            border-radius: 5px;
+            overflow-x: auto;
+        }
+
+        table{
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 20px;
+        }
+
+        th{
+            background-color: #007bff;
+            color: white;
+            padding: 12px;
+            text-align: left;
+        }
+
+        td{
+            padding: 10px;
+            border-bottom: 1px solid #ddd;
+        }
+
+        tr:nth-child(even){
+            background-color: #f9f9f9;
+        }
+
+        .historico-container{
+            margin-top: 30px;
+        }
+
+    </style>
+
+</head>
+
+<body>
+
+<div class="container">
+
+    <h1>Monitoramento de Estoque AWS</h1>
+
+    <p>
+        Consulta automática do último dado recebido pela API Spring Boot hospedada na AWS.
+    </p>
+
+    <div class="card">
+
+        <strong>Último valor recebido:</strong>
+
+        <div class="status" id="status">
+            Carregando...
+        </div>
+
+    </div>
+
+    <button onclick="buscarDados()">
+        Atualizar Dados
+    </button>
+
+    <h3>JSON Completo</h3>
+
+    <pre id="jsonCompleto">
+Aguardando resposta...
+    </pre>
+
+    <div class="historico-container">
+
+        <h3>Histórico de Leituras</h3>
+
+        <table>
+
+            <thead>
+
+                <tr>
+                    <th>Horário</th>
+                    <th>Estação</th>
+                    <th>Valor</th>
+                </tr>
+
+            </thead>
+
+            <tbody id="historicoTabela">
+
+            </tbody>
+
+        </table>
+
+    </div>
+
+</div>
+
+<script>
+
+    /*
+        URL da API
+    */
+    const API_URL =
+    "http://teste-env.eba-pi3vntur.us-east-1.elasticbeanstalk.com/senai/bancada/estoque/ultimo";
+
+
+    /*
+        Guarda histórico local
+    */
+    let historico = [];
+
+
+    /*
+        Busca dados da API
+    */
+    async function buscarDados(){
+
+        try{
+
+            const resposta = await fetch(API_URL);
+
+            /*
+                Verifica erro HTTP
+            */
+            if(!resposta.ok){
+
+                throw new Error(
+                    "Erro HTTP: " + resposta.status
+                );
+            }
+
+            /*
+                Converte JSON
+            */
+            const dados = await resposta.json();
+
+            /*
+                Captura estação dinâmica
+            */
+            const estacao =
+                dados.estacao || "desconhecida";
+
+            /*
+                Atualiza valor principal
+            */
+            document.getElementById("status").innerText =
+                "Estação: " + estacao +
+                " | comutadorAutomatico = " +
+                dados.comutadorAutomatico;
+
+            /*
+                Mostra JSON completo formatado
+            */
+            document.getElementById("jsonCompleto").innerText =
+                JSON.stringify(dados, null, 4);
+
+            /*
+                Gera horário atual
+            */
+            const agora = new Date();
+
+            const horario =
+                agora.toLocaleTimeString();
+
+            /*
+                Adiciona no histórico
+            */
+            historico.unshift({
+                horario: horario,
+                estacao: estacao,
+                valor: dados.comutadorAutomatico
+            });
+
+            /*
+                Limita histórico
+            */
+            if(historico.length > 20){
+
+                historico.pop();
+            }
+
+            atualizarTabela();
+
+        }
+        catch(erro){
+
+            /*
+                Mostra erro na tela
+            */
+            document.getElementById("status").innerText =
+                "Erro ao conectar na API";
+
+            document.getElementById("jsonCompleto").innerText =
+                erro;
+        }
+    }
+
+
+    /*
+        Atualiza tabela HTML
+    */
+    function atualizarTabela(){
+
+        const tabela =
+            document.getElementById("historicoTabela");
+
+        tabela.innerHTML = "";
+
+        historico.forEach(item => {
+
+            tabela.innerHTML += `
+                <tr>
+                    <td>${item.horario}</td>
+                    <td>${item.estacao}</td>
+                    <td>${item.valor}</td>
+                </tr>
+            `;
+        });
+    }
+
+
+    /*
+        Atualiza ao abrir página
+    */
+    buscarDados();
+
+
+    /*
+        Atualiza automaticamente
+    */
+    setInterval(buscarDados, 5000);
+
+</script>
+
+</body>
+</html>
